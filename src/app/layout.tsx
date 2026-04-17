@@ -73,14 +73,19 @@ export default function RootLayout({
       >
         <LivingSubstrate />
 
+        {/*
+          Vignette — center is fully transparent so the substrate can
+          actually glow where the hero sits. Edges fade toward pure void.
+        */}
         <div
           className="fixed inset-0 z-[1] pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse 80% 70% at 50% 40%, transparent 10%, rgba(1,1,6,0.88) 68%, #010106 100%)",
+              "radial-gradient(ellipse 110% 90% at 50% 40%, transparent 0%, rgba(1,1,6,0.55) 70%, #010106 100%)",
           }}
         />
 
+        {/* Grain — paper-like texture, very subtle */}
         <div
           className="fixed inset-0 z-[1] pointer-events-none opacity-[0.025] mix-blend-overlay"
           style={{
