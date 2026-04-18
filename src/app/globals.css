@@ -3,8 +3,7 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────
-   PALETTE · Ghost accent, institutional ink
-   Typefaces loaded via next/font in layout.tsx.
+   PALETTE
    ───────────────────────────────────────────────────────────── */
 :root {
   --void: #010106;
@@ -27,24 +26,20 @@
   color: #fff;
 }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
   background: #010106;
   color: #c8cfe0;
-  font-family: var(--font-body), 'DM Sans', system-ui, sans-serif;
-  font-weight: 300;
+  font-family: var(--font-body), 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  font-weight: 400;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern', 'liga', 'onum';
 }
 
-/* ─────────────────────────────────────────────────────────────
-   DEFENSIVE LINK RESET
-   ───────────────────────────────────────────────────────────── */
 a {
   color: inherit;
   text-decoration: none;
@@ -70,6 +65,42 @@ a:hover { text-decoration: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────
+   READING PLATE — chromatic lens onto the substrate
+   ─────────────────────────────────────────────────────────────
+   The plate isn't a wall between the prose and the cosmos; it's a
+   lens. Backdrop saturation is boosted above 1.0 so the substrate's
+   color cast (ghost-cyan at rest, pink when a vortex pulses nearby,
+   violet during He II moments) tints the plate. Brightness is dimmed
+   below 1.0 so text contrast holds. The semi-transparent fill plus
+   inset box-shadow give the plate its own faint atmosphere — even
+   over empty substrate regions, there's a soft ghost presence.
+   ───────────────────────────────────────────────────────────── */
+.reading-plate {
+  position: relative;
+  background: rgba(4, 8, 16, 0.38);
+  backdrop-filter: blur(28px) saturate(1.55) brightness(0.85);
+  -webkit-backdrop-filter: blur(28px) saturate(1.55) brightness(0.85);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+  padding: clamp(28px, 4vw, 48px) clamp(26px, 3.5vw, 44px);
+  box-shadow:
+    inset 0 0 90px rgba(127, 175, 179, 0.028),
+    inset 0 1px 0 rgba(255, 255, 255, 0.022);
+}
+
+/* Stronger wash for dense text — e.g. long-form article body */
+.reading-plate.reading-plate--deep {
+  background: rgba(4, 8, 16, 0.52);
+  backdrop-filter: blur(32px) saturate(1.6) brightness(0.82);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6) brightness(0.82);
+}
+
+/* Wider padding for article templates */
+.reading-plate.reading-plate--article {
+  padding: clamp(40px, 6vw, 72px) clamp(32px, 5vw, 64px);
+}
+
+/* ─────────────────────────────────────────────────────────────
    RULES
    ───────────────────────────────────────────────────────────── */
 .lantern-rule {
@@ -86,11 +117,8 @@ a:hover { text-decoration: none; }
   0%, 100% { opacity: 0.35; }
   50% { opacity: 0.6; }
 }
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 .animate-breathe { animation: breathe 6s ease-in-out infinite; }
+
 .reveal {
   opacity: 0;
   transform: translateY(20px);
@@ -101,14 +129,14 @@ a:hover { text-decoration: none; }
 .reveal.visible { opacity: 1; transform: translateY(0); }
 
 /* ─────────────────────────────────────────────────────────────
-   PROSE — /research + /about bodies
+   PROSE
    ───────────────────────────────────────────────────────────── */
 .prose-lantern {
-  color: #8a9bba;
-  line-height: 1.85;
-  font-size: 0.95rem;
-  font-weight: 300;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
+  color: #c2cadb;
+  line-height: 1.72;
+  font-size: 1.06rem;
+  font-weight: 400;
+  font-family: var(--font-body), 'Source Serif 4', Georgia, serif;
 }
 
 .prose-lantern h1,
@@ -131,7 +159,9 @@ a:hover { text-decoration: none; }
   color: #5a6780;
 }
 
-.prose-lantern p { margin: 0.9rem 0; }
+.prose-lantern p { margin: 1rem 0; }
+.prose-lantern em { font-style: italic; color: #eaeef7; }
+.prose-lantern strong { font-weight: 600; color: #eaeef7; }
 
 .prose-lantern a {
   color: #eaeef7;
@@ -146,13 +176,13 @@ a:hover { text-decoration: none; }
   font-family: var(--font-display), 'Cormorant Garamond', serif;
   font-style: italic;
   color: #c8cfe0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   line-height: 1.55;
 }
 
 .prose-lantern code {
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   background: rgba(255, 255, 255, 0.03);
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
@@ -168,13 +198,14 @@ a:hover { text-decoration: none; }
   margin: 1.5rem 0;
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
 }
-.prose-lantern pre code { background: none; padding: 0; font-size: 0.8rem; color: #8a9bba; }
+.prose-lantern pre code { background: none; padding: 0; font-size: 0.82rem; color: #c2cadb; }
 .prose-lantern hr {
   border: none;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
   margin: 3rem 0;
 }
+.prose-lantern .old-figures { font-feature-settings: 'onum'; }
 
 /* ─────────────────────────────────────────────────────────────
    FOCUS

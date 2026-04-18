@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, DM_Sans, JetBrains_Mono } from "next/font/google";
+import {
+  Cormorant_Garamond,
+  Source_Serif_4,
+  JetBrains_Mono,
+} from "next/font/google";
 import "./globals.css";
 import LivingSubstrate from "@/components/LivingSubstrate";
 import SiteHeader from "@/components/SiteHeader";
+import LimenLoader from "@/components/LimenLoader";
 import Link from "next/link";
 
 const cormorant = Cormorant_Garamond({
@@ -13,9 +18,15 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
-const dmSans = DM_Sans({
+// Body reading serif — replaces DM Sans. Source Serif 4 is Adobe's
+// open-source screen-reading serif, designed for exactly this kind of
+// long-form academic prose. Pairs with Cormorant Garamond: same classical
+// skeleton, different roles — display carries the drama, body does the
+// patient work of paragraphs.
+const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
   variable: "--font-body",
   display: "swap",
 });
@@ -59,24 +70,23 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${cormorant.variable} ${dmSans.variable} ${jetbrains.variable}`}
+      className={`${cormorant.variable} ${sourceSerif.variable} ${jetbrains.variable}`}
     >
       <body
         style={{
           background: "#010106",
           color: "#c8cfe0",
-          fontFamily: "var(--font-body), 'DM Sans', sans-serif",
-          fontWeight: 300,
+          fontFamily:
+            "var(--font-body), 'Source Serif 4', Georgia, 'Times New Roman', serif",
+          fontWeight: 400,
           WebkitFontSmoothing: "antialiased",
           MozOsxFontSmoothing: "grayscale",
         }}
       >
+        <LimenLoader />
+
         <LivingSubstrate />
 
-        {/*
-          Vignette — center is fully transparent so the substrate can
-          actually glow where the hero sits. Edges fade toward pure void.
-        */}
         <div
           className="fixed inset-0 z-[1] pointer-events-none"
           style={{
@@ -85,7 +95,6 @@ export default function RootLayout({
           }}
         />
 
-        {/* Grain — paper-like texture, very subtle */}
         <div
           className="fixed inset-0 z-[1] pointer-events-none opacity-[0.025] mix-blend-overlay"
           style={{
@@ -237,7 +246,7 @@ export default function RootLayout({
           >
             <div>© mmxxvi Limen Research</div>
             <div style={{ textAlign: "center" }}>
-              Set in Cormorant Garamond · DM Sans · JetBrains Mono
+              Set in Cormorant Garamond · Source Serif 4 · JetBrains Mono
             </div>
             <div>Successor to Replete AI</div>
           </div>

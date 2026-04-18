@@ -18,7 +18,7 @@ const COLOR = {
 
 const FONT = {
   display: "var(--font-display), 'Cormorant Garamond', Georgia, serif",
-  body: "var(--font-body), 'DM Sans', system-ui, sans-serif",
+  body: "var(--font-body), 'Source Serif 4', Georgia, 'Times New Roman', serif",
   mono: "var(--font-mono), 'JetBrains Mono', monospace",
 } as const;
 
@@ -436,7 +436,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* STANDFIRST — left border demoted to white/subtle */}
+        {/* STANDFIRST — plated. The plate's frosted backdrop replaces the
+            old borderLeft; same signature role, now coupled to the substrate. */}
         <div
           style={{
             padding: "0 40px 72px",
@@ -444,13 +445,7 @@ export default function Home() {
             justifyContent: "center",
           }}
         >
-          <div
-            style={{
-              maxWidth: 760,
-              borderLeft: "1px solid rgba(255,255,255,0.1)",
-              paddingLeft: "clamp(20px, 3vw, 36px)",
-            }}
-          >
+          <div className="reading-plate" style={{ maxWidth: 760 }}>
             <p
               style={{
                 margin: 0,
@@ -666,7 +661,8 @@ export default function Home() {
             alignItems: "start",
           }}
         >
-          <div>
+          {/* Colophon prose column — plated */}
+          <div className="reading-plate">
             <p
               style={{
                 margin: 0,
@@ -685,12 +681,13 @@ export default function Home() {
             <p
               style={{
                 marginTop: 40,
+                marginBottom: 0,
                 fontFamily: FONT.body,
-                fontSize: 13.5,
-                lineHeight: 1.9,
-                color: COLOR.inkMuted,
+                fontSize: 14,
+                lineHeight: 1.72,
+                color: COLOR.inkBody,
                 maxWidth: "60ch",
-                fontWeight: 300,
+                fontWeight: 400,
               }}
             >
               Limen Research is an independent research organization. The name
@@ -786,17 +783,24 @@ export default function Home() {
 // ═══════════════════════════════════════════════════════════════════════════
 // SUB-COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════
+// Each Publication and Platform becomes a self-contained plated ghost:
+// whole <article> / <div> is a reading-plate, so metadata column + body
+// column both sit on the frosted backdrop. The plate replaces the old
+// border-bottom divider; margin-bottom gives breathing room between plates.
+// Sticky positioning removed from publication asides — the plate is
+// self-contained and the user reads the whole thing before scrolling past.
+// ═══════════════════════════════════════════════════════════════════════════
 
 function PublicationEntry({ pub }: { pub: Publication }) {
   return (
     <article
-      className="pub-entry"
+      className="pub-entry reading-plate"
       style={{
         display: "grid",
         gridTemplateColumns: "minmax(180px, 1fr) 4fr",
         gap: "clamp(24px, 4vw, 72px)",
-        padding: "64px 0",
-        borderBottom: `1px solid ${COLOR.inkGhost}35`,
+        padding: "clamp(44px, 5vw, 72px) clamp(32px, 4vw, 60px)",
+        marginBottom: 32,
       }}
     >
       <aside
@@ -805,9 +809,6 @@ function PublicationEntry({ pub }: { pub: Publication }) {
           flexDirection: "column",
           gap: 28,
           paddingTop: 10,
-          position: "sticky",
-          top: 112,
-          alignSelf: "start",
         }}
       >
         <div>
@@ -924,11 +925,11 @@ function PublicationEntry({ pub }: { pub: Publication }) {
           style={{
             margin: 0,
             fontFamily: FONT.body,
-            fontSize: 14.5,
-            lineHeight: 1.9,
-            color: COLOR.inkMuted,
+            fontSize: 15,
+            lineHeight: 1.76,
+            color: COLOR.inkBody,
             maxWidth: "68ch",
-            fontWeight: 300,
+            fontWeight: 400,
           }}
         >
           {pub.abstract}
@@ -1005,13 +1006,13 @@ function PublicationEntry({ pub }: { pub: Publication }) {
 function PlatformEntry({ p }: { p: Platform }) {
   const inner = (
     <div
-      className="platform-entry"
+      className="platform-entry reading-plate"
       style={{
         display: "grid",
         gridTemplateColumns: "minmax(180px, 1fr) 4fr",
         gap: "clamp(24px, 4vw, 72px)",
-        padding: "72px 0",
-        borderBottom: `1px solid ${COLOR.inkGhost}35`,
+        padding: "clamp(48px, 5.5vw, 80px) clamp(32px, 4vw, 60px)",
+        marginBottom: 32,
       }}
     >
       <aside
@@ -1112,11 +1113,11 @@ function PlatformEntry({ p }: { p: Platform }) {
             marginTop: 36,
             marginBottom: 0,
             fontFamily: FONT.body,
-            fontSize: 14.5,
-            lineHeight: 1.9,
-            color: COLOR.inkMuted,
+            fontSize: 15,
+            lineHeight: 1.76,
+            color: COLOR.inkBody,
             maxWidth: "62ch",
-            fontWeight: 300,
+            fontWeight: 400,
           }}
         >
           {p.body}

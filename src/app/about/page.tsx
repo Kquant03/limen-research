@@ -25,7 +25,7 @@ const COLOR = {
 
 const FONT = {
   display: "var(--font-display), 'Cormorant Garamond', Georgia, serif",
-  body: "var(--font-body), 'DM Sans', system-ui, sans-serif",
+  body: "var(--font-body), 'Source Serif 4', Georgia, 'Times New Roman', serif",
   mono: "var(--font-mono), 'JetBrains Mono', monospace",
 } as const;
 
@@ -150,7 +150,9 @@ function Ornament() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SECTION SHELL
+// SECTION SHELL — children are now plated so every section's prose sits on
+// a frosted lens that samples the substrate behind it. The aside column
+// (§ marker, label, date) stays unplated — it's metadata, not prose.
 // ═══════════════════════════════════════════════════════════════════════════
 
 function SectionShell({
@@ -227,7 +229,8 @@ function SectionShell({
           </div>
         </aside>
 
-        <div>{children}</div>
+        {/* The plate. Every SectionShell's children render inside it. */}
+        <div className="reading-plate">{children}</div>
       </div>
     </section>
   );
@@ -235,6 +238,9 @@ function SectionShell({
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROSE STYLES
+// Tuned for Source Serif 4 body: weight 400 (serifs need the weight to
+// anchor), line-height 1.76 (tighter than sans because serifs guide the eye
+// down with their feet and don't need as much leading).
 // ═══════════════════════════════════════════════════════════════════════════
 
 const bodyParaStyle: React.CSSProperties = {
@@ -242,10 +248,10 @@ const bodyParaStyle: React.CSSProperties = {
   marginBottom: 22,
   fontFamily: FONT.body,
   fontSize: 15.5,
-  lineHeight: 1.9,
+  lineHeight: 1.76,
   color: COLOR.inkBody,
   maxWidth: "66ch",
-  fontWeight: 300,
+  fontWeight: 400,
 };
 
 const leadParaStyle: React.CSSProperties = {
@@ -337,14 +343,10 @@ export default function About() {
           </div>
         </div>
 
+        {/* STANDFIRST — plated. Was borderLeft + paddingLeft; the plate
+            now provides the signature with its frosted backdrop-filter. */}
         <div style={{ padding: "0 40px", display: "flex", justifyContent: "center" }}>
-          <div
-            style={{
-              maxWidth: 760,
-              borderLeft: "1px solid rgba(255,255,255,0.1)",
-              paddingLeft: "clamp(20px, 3vw, 36px)",
-            }}
-          >
+          <div className="reading-plate" style={{ maxWidth: 760 }}>
             <p
               style={{
                 margin: 0,
@@ -776,7 +778,9 @@ export default function About() {
             alignItems: "start",
           }}
         >
-          <div>
+          {/* Colophon first column — plated. The closing statement and the
+              bulletin-of-record note now read off the same frosted surface. */}
+          <div className="reading-plate">
             <p
               style={{
                 margin: 0,
@@ -795,12 +799,13 @@ export default function About() {
             <p
               style={{
                 marginTop: 32,
+                marginBottom: 0,
                 fontFamily: FONT.body,
-                fontSize: 13,
-                lineHeight: 1.9,
-                color: COLOR.inkMuted,
+                fontSize: 14,
+                lineHeight: 1.72,
+                color: COLOR.inkBody,
                 maxWidth: "60ch",
-                fontWeight: 300,
+                fontWeight: 400,
               }}
             >
               This profile was set on the bulletin of record for Limen
@@ -886,7 +891,7 @@ export default function About() {
         }
         .contact-row:hover .contact-address { color: ${COLOR.ghost} !important; }
         .contact-row:hover .contact-arrow { color: ${COLOR.ghost} !important; }
-        .contact-row:hover { background: rgba(255,255,255,0.015); }
+        .contact-row:hover { background: rgba(255,255,255,0.025); }
         .colophon-link:hover { color: ${COLOR.ghost} !important; }
       `}</style>
     </>
@@ -937,9 +942,9 @@ function SubEntry({ label, body }: { label: string; body: string }) {
           marginLeft: 38,
           fontFamily: FONT.body,
           fontSize: 14.5,
-          lineHeight: 1.85,
-          color: COLOR.inkMuted,
-          fontWeight: 300,
+          lineHeight: 1.72,
+          color: COLOR.inkBody,
+          fontWeight: 400,
           maxWidth: "60ch",
         }}
       >
