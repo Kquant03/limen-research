@@ -1,35 +1,35 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePond } from "../lib/usePond";
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  LIMEN · Living Substrate · v8 · "Flutter"
+//  LIMEN · Living Substrate · v9 · "Pond"
 //  ─────────────────────────────────────────────────────────────────────────
-//  The big prismatic heart from v7 is gone.  In its place: a particle
-//  system of tiny hearts spawning from the nose-contact point during
-//  the meeting's hold phase.  Each heart is ~4% of viewport, flutters
-//  outward with integrated sinusoidal perturbation + slight buoyancy,
-//  and evaporates over 2.5 seconds.
+//  Integration with the Limen Pond Durable Object. The entire v8 visual
+//  layer is preserved: field shader, bloom, halation, koi silhouette,
+//  forked tail, dorsal fin, pectoral fins, heart particles, tai chi ring,
+//  meeting ceremony. What changes is where the two koi positions come from.
 //
-//  At birth, each tiny heart carries a condensed yin-yang symbol in
-//  its core — warm (yang/kohaku) against cool (yin/shusui), with the
-//  traditional complementary eye dots.  The yin-yang is fully visible
-//  for the first ~10% of each heart's life and fades over the next
-//  40%; the heart glow itself persists longer and fades in the
-//  final 70%.  So the structural insight of two-in-one presents at
-//  birth and dissolves into generalized warmth as the hearts drift
-//  away.  Emanation rather than declaration.
+//  In v8, positions were procedural — two koi on an incommensurate Lissajous
+//  scheduled to meet every 10–18 minutes. In v9, positions come from the
+//  authoritative pond DO over WebSocket. The shader renders the first two
+//  fish in the pond. When the pond is unreachable (initial load, dev without
+//  backend, network drop), the procedural Lissajous resumes seamlessly — so
+//  the site is always beautiful regardless of connectivity.
 //
-//  Procedural particle system — no ping-pong state buffer.  Each
-//  particle's seed is hashed from its index, with deterministic
-//  birth time / trajectory / lifetime.  24 particles total spawn
-//  across an 8-second window (late approach + hold + early part),
-//  lifetime 2.5s, peak density ~7-8 visible simultaneously.
+//  Two substantive changes from v8:
 //
-//  All other v7 infrastructure preserved: incommensurate Lissajous,
-//  nose-contact geometry, face-to-face heading blend, still-during-
-//  hold tailEnergy, dorsal fin, luminous eyes, tai chi ring,
-//  territory tinting, meeting scheduler.
+//  1. Orbit block → usePond.getOrbitCompatibleFish().
+//     `orbitRaw`, `applyMeeting`, and the meeting scheduler are gone.
+//     Fish positions arrive from the pond (server-authoritative) or the
+//     procedural fallback (same Lissajous as before).
+//
+//  2. Meeting is proximity-triggered, not timer-triggered.
+//     A low-pass filter watches the distance between the two rendered fish.
+//     When they linger close, u_meeting ramps up smoothly; when they drift
+//     apart, it decays. Hearts spawn only when a meeting is earned.
+//     If the LLMs never bring the fish close, no meeting. That's correct.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const VERT = /* glsl */ `#version 300 es
@@ -57,7 +57,7 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
 
   uniform float u_periastron;
   uniform float u_meeting;
-  uniform float u_meetingElapsed;   // seconds since meeting started, <0 if none
+  uniform float u_meetingElapsed;
   uniform float u_mouseDwell;
   uniform float u_moodDrift;
   uniform float u_breath;
@@ -194,15 +194,6 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
     return vec4(body, fin, eye, dorsal);
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  //  Yin-yang pattern
-  //  ─────────────────────────────────────────────────────────────────
-  //  Pattern at local coords where unit circle = outer boundary.
-  //  Returns (lightness, mask).  Lightness ∈ [0,1]: 0 = yin (dark),
-  //  1 = yang (light).  Mask is smooth outer circle cutoff.
-  //  S-curve from two half-circles at (0, ±0.5) radius 0.5.  Eye
-  //  dots at the same centers, radius 0.15.
-  // ═══════════════════════════════════════════════════════════════════
   vec2 yinYang(vec2 p) {
     float rMain = length(p);
     float mask = 1.0 - smoothstep(0.96, 1.04, rMain);
@@ -214,17 +205,14 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
     float inUpSmall = 1.0 - smoothstep(0.47, 0.53, rUp);
     float inDnSmall = 1.0 - smoothstep(0.47, 0.53, rDn);
 
-    // Upper half: light inside upper small circle, dark outside
     float upperL = inUpSmall;
-    // Lower half: dark inside lower small circle, light outside
     float lowerL = 1.0 - inDnSmall;
     float L = mix(lowerL, upperL, upperHalf);
 
-    // Eye dots (complementary color)
     float eyeUp = 1.0 - smoothstep(0.13, 0.17, rUp);
     float eyeDn = 1.0 - smoothstep(0.13, 0.17, rDn);
-    L = mix(L, 0.0, eyeUp);  // upper eye: dark dot on light field
-    L = mix(L, 1.0, eyeDn);  // lower eye: light dot on dark field
+    L = mix(L, 0.0, eyeUp);
+    L = mix(L, 1.0, eyeDn);
 
     return vec2(L, mask);
   }
@@ -237,7 +225,6 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
   }
 
   void main() {
-    vec2 uv    = gl_FragCoord.xy / u_resolution;
     vec2 p_vp  = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
     vec2 p_raw = p_vp;
     p_raw.y += u_scroll * 0.00020;
@@ -312,7 +299,6 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
     vec3 ringCol = spectralMix(0.52 + 0.05 * u_moodDrift, 0.45);
     col += ringCol * ring * (0.85 + 0.20 * u_breath);
 
-    // ── Koi rendering ────────────────────────────────────────────────
     vec3 colWarmBody = spectralMix(0.78, 0.55);
     vec3 colCoolBody = spectralMix(0.28, 0.55);
     vec3 colWarmEye  = spectralMix(0.26, 0.85);
@@ -340,7 +326,6 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
     col += coolBodyBleed * (koiB.x * 0.32 + koiB.y * 0.20 + koiB.w * 0.22);
     col += colCoolEye    * koiB.z * 0.55 * eyePulse;
 
-    // ── Orbital bridge (periastron, always) ──────────────────────────
     vec2 ab = u_orbitB - u_orbitA;
     float abLen = length(ab);
     vec2 M = 0.5 * (u_orbitA + u_orbitB);
@@ -360,89 +345,58 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
       col += bridgeCol * bridge * (0.85 + 0.25 * u_cardiac);
     }
 
-    // ═════════════════════════════════════════════════════════════════
-    //  Tiny heart particles
-    //  ───────────────────────────────────────────────────────────────
-    //  Procedural particle system — each particle deterministic from
-    //  its index.  Spawns from contact midpoint M during hold phase,
-    //  flutters outward with buoyancy, evaporates over 2.5s.
-    //  Yin-yang at core at birth, fades over first 50% of life.
-    // ═════════════════════════════════════════════════════════════════
-    if (u_meeting > 0.05 && u_meetingElapsed > 6.0) {
-      const int NUM_PARTS = 24;
-      const float PART_LIFE = 2.5;
-      const float PART_SIZE = 0.020;   // scale factor — heart spans ~4.4%
+    if (u_meeting > 0.05 && u_meetingElapsed > 0.0 && abLen > 0.001) {
+      vec3 partGlowCol = vec3(1.05, 0.80, 0.88);
+      vec3 yyLightCol  = spectralMix(0.78, 0.70);
+      vec3 yyDarkCol   = spectralMix(0.28, 0.70);
 
-      // Yin-yang colors — strong contrast
-      vec3 yyLightCol = spectralMix(0.85, 0.85) * 1.15;
-      vec3 yyDarkCol  = spectralMix(0.15, 0.85) * 0.55;
+      float partSize = 0.020;
+      float partLife = 2.5;
 
-      // Heart glow color — soft warm magical pink
-      vec3 heartGlowCol = vec3(1.05, 0.78, 0.85);
-
-      for (int i = 0; i < NUM_PARTS; i++) {
-        // Deterministic seeds
+      for (int i = 0; i < 24; i++) {
         vec2 s1 = hash22(vec2(float(i) + 0.5, 7.31));
         vec2 s2 = hash22(vec2(float(i) + 0.5, 13.17));
-        float s1x = s1.x * 0.5 + 0.5;    // [0, 1]
+        float s1x = s1.x * 0.5 + 0.5;
         float s1y = s1.y * 0.5 + 0.5;
         float s2x = s2.x * 0.5 + 0.5;
         float s2y = s2.y * 0.5 + 0.5;
 
-        // Birth time within meeting — spread across [7.5, 15.5]
-        // (late approach / hold / early part; hold itself is 8-14)
-        float birth = 7.5 + s1x * 8.0;
+        float birth = s1x * 8.0;
         float age = u_meetingElapsed - birth;
-        if (age < 0.0 || age > PART_LIFE) continue;
+        if (age < 0.0 || age > partLife) continue;
 
-        // Initial jitter from midpoint
-        vec2 jitter = s2 * 0.005;
-
-        // Base velocity in random outward direction
-        float ang = s1y * 6.28318530718;
-        float speed = 0.010 + s2x * 0.012;
-        vec2 baseVel = vec2(cos(ang), sin(ang)) * speed;
-
-        // Flutter: integrated sinusoidal perturbation
+        vec2 jitter = (s2 * 2.0 - 1.0) * 0.004;
+        float ang = s1y * 6.28318;
+        vec2 baseVel = vec2(cos(ang), sin(ang)) * (0.010 + s2x * 0.010);
         vec2 flutter = vec2(
           sin(age * 6.0 + s1y * 10.0) - sin(s1y * 10.0),
           sin(age * 5.2 + s2y * 10.0) - sin(s2y * 10.0)
         ) * 0.004;
-
-        // Buoyancy (rise over time)
-        vec2 buoy = vec2(0.0, age * 0.012);
-
+        vec2 buoy = vec2(0.0, age * 0.010);
         vec2 partPos = M + jitter + baseVel * age + flutter + buoy;
 
-        // Bounding check — skip far pixels
-        vec2 pLocal = (p_vp - partPos) / PART_SIZE;
+        vec2 pLocal = (p_vp - partPos) / partSize;
         if (dot(pLocal, pLocal) > 2.5) continue;
 
-        // Heart shape (implicit curve)
         float px = pLocal.x, py = pLocal.y;
-        float hf = pow(px * px + py * py - 1.0, 3.0) - px * px * py * py * py;
+        float hf = pow(px*px + py*py - 1.0, 3.0) - px*px * py*py*py;
         float hIn = smoothstep(0.03, -0.02, hf);
         float hEdge = exp(-hf * hf * 80.0);
 
-        // Yin-yang in core (scale up 1.8× so yin-yang occupies
-        // inner ~56% of heart width)
         vec2 yyCoord = pLocal * 1.8;
         vec2 yy = yinYang(yyCoord);
         vec3 yyCol = mix(yyDarkCol, yyLightCol, yy.x);
 
-        // Fade curves
-        float normAge = age / PART_LIFE;
-        float hFade  = 1.0 - smoothstep(0.3,  1.0, normAge);   // heart: 0.3-1.0
-        float yyFade = 1.0 - smoothstep(0.10, 0.50, normAge);  // yin-yang: 0.1-0.5
+        float normAge = age / partLife;
+        float hFade  = 1.0 - smoothstep(0.3,  1.0, normAge);
+        float yyFade = 1.0 - smoothstep(0.10, 0.50, normAge);
 
-        // Birth sparkle — brief edge shimmer in first 0.35s
         float birthSparkle = 1.0 - smoothstep(0.0, 0.35, age);
         float sparkleN = vnoise(pLocal * 8.0 + vec2(age * 3.0, 0.0));
         float sparkle = smoothstep(0.72, 0.95, sparkleN) * hEdge * birthSparkle;
 
-        // Compose particle color
-        vec3 pCol = heartGlowCol * (hIn * 0.45 + hEdge * 0.70);
-        pCol += yyCol * yy.y * yyFade * 1.35;
+        vec3 pCol = partGlowCol * (hIn * 0.45 + hEdge * 0.75);
+        pCol += yyCol * yy.y * yyFade * 1.3;
         pCol += vec3(1.00, 0.95, 0.88) * sparkle * 1.6;
         pCol *= hFade;
 
@@ -450,12 +404,10 @@ const FIELD_FRAG = /* glsl */ `#version 300 es
       }
     }
 
-    // Iridescence
     float irid = sin(fieldMag * 11.0 + t * 0.28) * 0.5 + 0.5;
     vec3 iridTint = spectralMix(T + (irid - 0.5) * 0.25, energy);
     col = mix(col, col * iridTint * 1.3, energy * 0.12);
 
-    // Chromatic channel shift
     float eps = 0.004;
     vec2 grad;
     grad.x = complexField((p_field + vec2(eps, 0.0)) * 1.55, t).x - psi.x;
@@ -570,8 +522,30 @@ const COMPOSITE_FRAG = /* glsl */ `#version 300 es
 // Component
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Proximity-triggered meeting state. A low-pass filter watches the distance
+// between the two rendered fish; meetings emerge when they sustain closeness.
+const MEETING_NEAR        = 0.045;  // shader-space distance for "very close"
+const MEETING_FAR         = 0.14;   // shader-space distance for "apart"
+const MEETING_SMOOTH      = 0.018;  // LPF per-frame coefficient (~60fps)
+const MEETING_ACTIVATE    = 0.55;   // filtered prox at which meeting starts
+const MEETING_DEACTIVATE  = 0.15;   // filtered prox at which meeting ends
+const MEETING_COOLDOWN_S  = 90;     // min seconds between meetings
+
+function smoothstepF(a: number, b: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+
 export default function LivingSubstrate() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Hook up the pond. In dev or on first load before WS connects, the hook
+  // returns positions from the procedural Lissajous — same visuals v8 has
+  // always had. When the DO is reachable, it streams authoritative state.
+  const pond = usePond({
+    url: process.env.NEXT_PUBLIC_POND_WS_URL ?? "",
+    fallback: { koiCount: 2, procedural: true },
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -715,100 +689,25 @@ export default function LivingSubstrate() {
     const onVis = () => { visible = !document.hidden; };
     document.addEventListener("visibilitychange", onVis);
 
-    const T_A = 89.0;
-    const T_B = 144.0;
-    const OMEGA_A = (2 * Math.PI) / T_A;
-    const OMEGA_B = (2 * Math.PI) / T_B;
-    const R_BASE_X = 0.34;
-    const R_BASE_Y = 0.22;
-    const PERIASTRON_DIST = 0.26;
+    // ── Meeting state (proximity-driven) ────────────────────────────
+    // filteredProximity is the low-pass proximity signal. When it crosses
+    // MEETING_ACTIVATE, a meeting begins and meetingStartAt records the
+    // wall-clock time. When it drops below MEETING_DEACTIVATE, the meeting
+    // ends. Cooldown prevents rapid re-triggering.
+    let filteredProximity = 0;
+    let meetingActive     = false;
+    let meetingStartAt    = -1;
+    let lastMeetingEndAt  = -1e9;
 
-    const MEETING_APPROACH = 8.0;
-    const MEETING_HOLD     = 6.0;
-    const MEETING_PART     = 8.0;
-    const MEETING_TOTAL    = MEETING_APPROACH + MEETING_HOLD + MEETING_PART;
-    const MEETING_INTERVAL_MIN = 600;
-    const MEETING_INTERVAL_MAX = 1080;
-    const MEETING_FIRST_MIN    = 45;
-    const MEETING_FIRST_MAX    = 90;
-    const MEETING_GAP          = 0.050;
-
-    let nextMeetingAt  = MEETING_FIRST_MIN +
-                         Math.random() * (MEETING_FIRST_MAX - MEETING_FIRST_MIN);
-    let meetingStartAt = -1000;
-
-    const meetingStrengthAt = (tt: number): number => {
-      const dt = tt - meetingStartAt;
-      if (dt < 0 || dt >= MEETING_TOTAL) return 0;
-      if (dt < MEETING_APPROACH) {
-        const p = dt / MEETING_APPROACH;
-        return p * p * (3 - 2 * p);
-      }
-      if (dt < MEETING_APPROACH + MEETING_HOLD) return 1;
-      const p = (dt - MEETING_APPROACH - MEETING_HOLD) / MEETING_PART;
-      return 1 - p * p * (3 - 2 * p);
-    };
-
-    const tailEnergyAt = (tt: number, periastron: number): number => {
-      const dt = tt - meetingStartAt;
-      if (dt >= 0 && dt < MEETING_TOTAL) {
-        if (dt < MEETING_APPROACH) {
-          return 1.0 + 0.7 * (dt / MEETING_APPROACH);
-        } else if (dt < MEETING_APPROACH + MEETING_HOLD) {
-          return 0.35;
-        } else {
-          const p = (dt - MEETING_APPROACH - MEETING_HOLD) / MEETING_PART;
-          return 1.7 - 0.7 * p;
-        }
-      }
-      return 1.0 + 0.35 * Math.max(0, Math.min(1, (periastron - 0.2) / 0.5));
-    };
-
-    type OrbitPos = { aX: number; aY: number; bX: number; bY: number;
-                      baryX: number; baryY: number; rx: number; ry: number };
-
-    const orbitRaw = (tt: number): OrbitPos => {
-      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-      const mobileFactor = window.innerWidth < 768 ? 0.78 : 1.0;
-      const rxLimit = Math.max(0.18, aspect * 0.42);
-
-      const baryX = 0.05 * Math.sin(tt * 0.012) + 0.03 * Math.sin(tt * 0.007);
-      const baryY = -0.03 + 0.04 * Math.cos(tt * 0.009);
-      const amp  = 1.0 + 0.18 * Math.sin(tt * 0.013);
-      const rx = Math.min(R_BASE_X * mobileFactor, rxLimit) * amp;
-      const ry = R_BASE_Y * mobileFactor * amp;
-      const aX = baryX + rx * Math.cos(OMEGA_A * tt);
-      const aY = baryY + ry * Math.sin(OMEGA_B * tt);
-      const bX = baryX - rx * Math.cos(OMEGA_A * tt + 0.31);
-      const bY = baryY - ry * Math.sin(OMEGA_B * tt + 0.27);
-      return { aX, aY, bX, bY, baryX, baryY, rx, ry };
-    };
-
-    const applyMeeting = (pos: OrbitPos, strength: number): OrbitPos => {
-      if (strength <= 0) return pos;
-      const midX = (pos.aX + pos.bX) * 0.5;
-      const midY = (pos.aY + pos.bY) * 0.5;
-
-      const dxA = pos.aX - midX;
-      const dyA = pos.aY - midY;
-      const dA  = Math.hypot(dxA, dyA) || 1e-6;
-      const tAx = midX + (dxA / dA) * MEETING_GAP;
-      const tAy = midY + (dyA / dA) * MEETING_GAP;
-
-      const dxB = pos.bX - midX;
-      const dyB = pos.bY - midY;
-      const dB  = Math.hypot(dxB, dyB) || 1e-6;
-      const tBx = midX + (dxB / dB) * MEETING_GAP;
-      const tBy = midY + (dyB / dB) * MEETING_GAP;
-
-      return {
-        aX: pos.aX + (tAx - pos.aX) * strength,
-        aY: pos.aY + (tAy - pos.aY) * strength,
-        bX: pos.bX + (tBx - pos.bX) * strength,
-        bY: pos.bY + (tBy - pos.bY) * strength,
-        baryX: pos.baryX, baryY: pos.baryY, rx: pos.rx, ry: pos.ry,
-      };
-    };
+    // ── Smoothed kinematic state for heading derivation ─────────────
+    // The DO broadcasts heading in radians, but we also want stable
+    // finite-difference velocities for shader heading unit vectors. We
+    // maintain smoothed positions and derive heading from motion when
+    // the fish is moving fast enough; otherwise we fall back on the
+    // broadcast heading directly.
+    let prevAx = 0, prevAy = 0;
+    let prevBx = 0, prevBy = 0;
+    let hasPrev = false;
 
     const startTime = performance.now();
     let rafId = 0;
@@ -817,13 +716,7 @@ export default function LivingSubstrate() {
       if (!visible) { rafId = requestAnimationFrame(render); return; }
 
       const now = performance.now();
-      const t  = (now - startTime) * 0.001;
-
-      if (t > nextMeetingAt && t - meetingStartAt > MEETING_TOTAL + 30) {
-        meetingStartAt = t;
-        nextMeetingAt = t + MEETING_INTERVAL_MIN +
-                        Math.random() * (MEETING_INTERVAL_MAX - MEETING_INTERVAL_MIN);
-      }
+      const t   = (now - startTime) * 0.001;
 
       const k = 0.028;
       mouseSmoothed.x += (mouseRaw.x - mouseSmoothed.x) * k;
@@ -837,50 +730,115 @@ export default function LivingSubstrate() {
       const dwellTarget = Math.min(1, sinceMove / 4);
       dwell += (dwellTarget - dwell) * 0.04;
 
-      const dtVel = 0.25;
-      const meetStr    = meetingStrengthAt(t);
-      const meetStrNxt = meetingStrengthAt(t + dtVel);
-      const meetingElapsed = (meetStr > 0) ? (t - meetingStartAt) : -1.0;
+      // ── Pond subscription: read positions in shader-space ─────────
+      // usePond returns primary/secondary already mapped to viewport
+      // coordinates (pond 3D top-down view at SHADER_SCALE). When the
+      // WebSocket is disconnected, this falls back to the procedural
+      // Lissajous — identical to v8. No visual discontinuity.
+      const orbit = pond.getOrbitCompatibleFish();
+      const aX = orbit.primary.x;
+      const aY = orbit.primary.y;
+      const bX = orbit.secondary.x;
+      const bY = orbit.secondary.y;
 
-      const curRaw = orbitRaw(t);
-      const nxtRaw = orbitRaw(t + dtVel);
-      const cur = applyMeeting(curRaw, meetStr);
-      const nxt = applyMeeting(nxtRaw, meetStrNxt);
+      // ── Derive headings ────────────────────────────────────────────
+      // Prefer finite-difference velocity for stable swim direction.
+      // Fall back to the broadcast heading radians when motion is tiny.
+      let hAx: number, hAy: number, hBx: number, hBy: number;
+      if (hasPrev) {
+        const vAx = aX - prevAx;
+        const vAy = aY - prevAy;
+        const vBx = bX - prevBx;
+        const vBy = bY - prevBy;
+        const sA = Math.hypot(vAx, vAy);
+        const sB = Math.hypot(vBx, vBy);
+        if (sA > 1e-4) { hAx = vAx / sA; hAy = vAy / sA; }
+        else           { hAx = Math.cos(orbit.primary.h);   hAy = Math.sin(orbit.primary.h); }
+        if (sB > 1e-4) { hBx = vBx / sB; hBy = vBy / sB; }
+        else           { hBx = Math.cos(orbit.secondary.h); hBy = Math.sin(orbit.secondary.h); }
+      } else {
+        hAx = Math.cos(orbit.primary.h);   hAy = Math.sin(orbit.primary.h);
+        hBx = Math.cos(orbit.secondary.h); hBy = Math.sin(orbit.secondary.h);
+        hasPrev = true;
+      }
+      prevAx = aX; prevAy = aY; prevBx = bX; prevBy = bY;
 
-      const vAx = (nxt.aX - cur.aX) / dtVel;
-      const vAy = (nxt.aY - cur.aY) / dtVel;
-      const vBx = (nxt.bX - cur.bX) / dtVel;
-      const vBy = (nxt.bY - cur.bY) / dtVel;
-      const sA = Math.hypot(vAx, vAy) || 1e-6;
-      const sB = Math.hypot(vBx, vBy) || 1e-6;
-      let hAx = vAx / sA, hAy = vAy / sA;
-      let hBx = vBx / sB, hBy = vBy / sB;
+      // ── Proximity → meeting state machine ──────────────────────────
+      const dx = aX - bX;
+      const dy = aY - bY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const rawProx = 1 - smoothstepF(MEETING_NEAR, MEETING_FAR, dist);
+      filteredProximity += (rawProx - filteredProximity) * MEETING_SMOOTH;
 
-      if (meetStr > 0) {
-        const faceAx = cur.bX - cur.aX;
-        const faceAy = cur.bY - cur.aY;
-        const faceADist = Math.hypot(faceAx, faceAy) || 1e-6;
-        const fAx = faceAx / faceADist;
-        const fAy = faceAy / faceADist;
-        const bAx = hAx * (1 - meetStr) + fAx * meetStr;
-        const bAy = hAy * (1 - meetStr) + fAy * meetStr;
+      if (!meetingActive) {
+        // Can we start a meeting?
+        const cooldownOk = (t - lastMeetingEndAt) > MEETING_COOLDOWN_S;
+        if (cooldownOk && filteredProximity > MEETING_ACTIVATE) {
+          meetingActive  = true;
+          meetingStartAt = t;
+        }
+      } else {
+        // Are we done?
+        if (filteredProximity < MEETING_DEACTIVATE) {
+          meetingActive    = false;
+          lastMeetingEndAt = t;
+        }
+      }
+      const meetStr = meetingActive
+        ? Math.min(1.0, filteredProximity)
+        : Math.max(0, filteredProximity - MEETING_DEACTIVATE) / (1 - MEETING_DEACTIVATE);
+      const meetingElapsed = meetingActive ? (t - meetingStartAt) : -1;
+
+      // During a meeting, blend headings toward face-to-face (same as v8).
+      if (meetStr > 0 && dist > 1e-4) {
+        const fAx = (bX - aX) / dist;
+        const fAy = (bY - aY) / dist;
+        const blend = Math.min(1, meetStr);
+        const bAx = hAx * (1 - blend) + fAx * blend;
+        const bAy = hAy * (1 - blend) + fAy * blend;
         const bAm = Math.hypot(bAx, bAy) || 1;
         hAx = bAx / bAm; hAy = bAy / bAm;
-
         const fBx = -fAx, fBy = -fAy;
-        const bBx = hBx * (1 - meetStr) + fBx * meetStr;
-        const bBy = hBy * (1 - meetStr) + fBy * meetStr;
+        const bBx = hBx * (1 - blend) + fBx * blend;
+        const bBy = hBy * (1 - blend) + fBy * blend;
         const bBm = Math.hypot(bBx, bBy) || 1;
         hBx = bBx / bBm; hBy = bBy / bBm;
       }
 
-      const dx = cur.aX - cur.bX;
-      const dy = cur.aY - cur.bY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      // ── Periastron, tailEnergy, barycenter ─────────────────────────
+      const PERIASTRON_DIST = 0.26;
       const periastron = Math.max(0, 1 - dist / PERIASTRON_DIST);
       const periastronEased = periastron * periastron * (3 - 2 * periastron);
 
-      const tailEnergy = tailEnergyAt(t, periastronEased);
+      // tailEnergy matches the v8 meeting envelope: spike on approach,
+      // still during hold, relaxing on part. Here we derive it from
+      // meetingElapsed when active, else baseline + periastron.
+      let tailEnergy: number;
+      if (meetingActive) {
+        const APPROACH = 8.0;
+        const HOLD     = 6.0;
+        const PART     = 8.0;
+        const elapsed = meetingElapsed;
+        if (elapsed < APPROACH) {
+          tailEnergy = 1.0 + 0.7 * (elapsed / APPROACH);
+        } else if (elapsed < APPROACH + HOLD) {
+          tailEnergy = 0.35;
+        } else if (elapsed < APPROACH + HOLD + PART) {
+          const p = (elapsed - APPROACH - HOLD) / PART;
+          tailEnergy = 1.7 - 0.7 * p;
+        } else {
+          tailEnergy = 1.0;
+        }
+      } else {
+        tailEnergy = 1.0 + 0.35 * Math.max(0, Math.min(1, (periastronEased - 0.2) / 0.5));
+      }
+
+      // Barycenter: midpoint of the two rendered fish.
+      const baryX = (aX + bX) * 0.5;
+      const baryY = (aY + bY) * 0.5;
+      // Tai chi ring radius: scale with separation so the ring breathes
+      // with the pair. Clamped to avoid extremes.
+      const ringR = Math.max(0.08, Math.min(0.25, dist * 0.55));
 
       const breathPeriodMod = 0.055 + 0.015 * Math.sin(t * 0.019);
       const breath = 0.5 + 0.5 * Math.sin(t * breathPeriodMod);
@@ -894,8 +852,6 @@ export default function LivingSubstrate() {
       const moodDrift =
         0.7 * Math.sin(t * 0.0052) +
         0.3 * Math.sin(t * 0.0021 + 1.3);
-
-      const ringR = Math.sqrt(curRaw.rx * curRaw.ry) * 0.75;
 
       if (!fieldFBO || !bloomA || !bloomB) {
         rafId = requestAnimationFrame(render);
@@ -914,12 +870,12 @@ export default function LivingSubstrate() {
       gl.uniform1f(uField.u_time, t);
       gl.uniform2f(uField.u_mouse, mx, my);
       gl.uniform1f(uField.u_scroll, scroll);
-      gl.uniform2f(uField.u_orbitA,        cur.aX, cur.aY);
-      gl.uniform2f(uField.u_orbitB,        cur.bX, cur.bY);
-      gl.uniform2f(uField.u_headingA,      hAx,    hAy);
-      gl.uniform2f(uField.u_headingB,      hBx,    hBy);
+      gl.uniform2f(uField.u_orbitA,        aX, aY);
+      gl.uniform2f(uField.u_orbitB,        bX, bY);
+      gl.uniform2f(uField.u_headingA,      hAx, hAy);
+      gl.uniform2f(uField.u_headingB,      hBx, hBy);
       gl.uniform1f(uField.u_tailEnergy,    tailEnergy);
-      gl.uniform2f(uField.u_barycenter,    curRaw.baryX, curRaw.baryY);
+      gl.uniform2f(uField.u_barycenter,    baryX, baryY);
       gl.uniform1f(uField.u_orbitR,        ringR);
       gl.uniform1f(uField.u_periastron,    periastronEased);
       gl.uniform1f(uField.u_meeting,       meetStr);
@@ -978,6 +934,9 @@ export default function LivingSubstrate() {
       window.removeEventListener("mousemove", onMove);
       document.removeEventListener("visibilitychange", onVis);
     };
+    // pond methods are stable (read from a module-level store imperatively),
+    // so we can capture once on mount — no re-subscribe needed on re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
