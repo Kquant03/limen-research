@@ -4,7 +4,14 @@
 //  Static configuration: the four scenarios (home-system → galactic), the
 //  three strategies (monolithic / naïve fission / architected fission), and
 //  the visibility flags that drive what the phase plot shows at each of
-//  the twelve beats of the v14 redesign.
+//  the thirteen beats of the v14·1 redesign.
+//
+//  v14·1 change: Beat 11 (Replicator Wave) inserted between Loopholes and
+//  Coherence Depth. Concedes that the §6 composed envelope does not bind a
+//  swarm of locally-bounded self-replicating probes (the strongest reading
+//  of Hanson's grabby model), and pivots to the homeostatic-design move
+//  carrying the rest of the weight. The bridge from physics to alignment
+//  is here. Coherence Depth is now id 12.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { LY, AU } from "./physics";
@@ -119,7 +126,8 @@ export const BEATS: BeatMeta[] = [
   { id: 8,  label: "Strategies",        kicker: "7—8", title: "Three ways to try; three breaches" },
   { id: 9,  label: "Fission dilemma",   kicker: "8.5", title: "The Chinese-Room moment" },
   { id: 10, label: "Loopholes",         kicker: "9",   title: "Where this could fail" },
-  { id: 11, label: "Coherence Depth",   kicker: "10",  title: "What to look for instead" },
+  { id: 11, label: "Replicator wave",   kicker: "9.5", title: "But what about replicators?" },
+  { id: 12, label: "Coherence Depth",   kicker: "10",  title: "What to look for instead" },
 ];
 
 // ─── Beat plot state ──────────────────────────────────────────────────────
@@ -182,10 +190,17 @@ export const PLOT_STATE: Record<number, PlotState> = {
   // 10 · Loopholes — envelope + parameter overlay sweep + scenario marks
   10: { ...baseHidden, axes: true, agentBand: true, envelope: true, infeasible: true,
         overlay: true, scenarioMarks: true },
-  // 11 · Coherence Depth — envelope persists as the silent context
+  // 11 · Replicator wave — envelope persists as silent context. The swarm
+  //      visualization lives inline in the left column. The plot showing
+  //      the §6 envelope alongside the swarm IS the argument: physics
+  //      bounds coordinated extent; the swarm has no coordinated extent.
+  //      Trajectory deliberately null — the swarm doesn't have a worldline
+  //      on (τ, L) because it doesn't have an L.
   11: { ...baseHidden, axes: true, agentBand: true, envelope: true, infeasible: true },
+  // 12 · Coherence Depth — envelope persists as the silent context
+  12: { ...baseHidden, axes: true, agentBand: true, envelope: true, infeasible: true },
 };
 
 export function plotStateForBeat(beatId: number): PlotState {
-  return PLOT_STATE[Math.max(0, Math.min(11, beatId))];
+  return PLOT_STATE[Math.max(0, Math.min(12, beatId))];
 }

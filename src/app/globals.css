@@ -101,6 +101,119 @@ a:hover { text-decoration: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────
+   GENESIS · CATALOG CARDS
+   ─────────────────────────────────────────────────────────────
+   The /genesis catalog uses two card configurations:
+     · default — vertical stack, canvas on top, prose below
+     · featured — horizontal split on wide viewports (canvas left,
+       prose right), stacks vertically at ≤ 920px to mirror how
+       <Stage> in SubstrateControls collapses at 900px.
+
+   Layout lives here in CSS (not inline) because the responsive
+   breakpoint requires a media query. The card classes do all the
+   layout work; the React component supplies content and reads
+   the `featured` prop to compose className.
+   ───────────────────────────────────────────────────────────── */
+.reading-plate.substrate-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: 0;
+  padding: 0;
+  height: 100%;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reading-plate.substrate-card:hover {
+  border-color: rgba(127, 175, 179, 0.16);
+  box-shadow:
+    inset 0 0 90px rgba(127, 175, 179, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.reading-plate.substrate-card--featured {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-rows: 1fr;
+}
+
+@media (max-width: 920px) {
+  .reading-plate.substrate-card--featured {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+}
+
+/* Canvas wrapper — the substrate's window into its world. */
+.substrate-card-canvas {
+  position: relative;
+  width: 100%;
+  background: #010106;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Default (vertical) card — divider runs horizontal under canvas. */
+.reading-plate.substrate-card:not(.substrate-card--featured)
+  .substrate-card-canvas {
+  border-bottom: 1px solid rgba(58, 69, 96, 0.28);
+}
+
+/* Featured card — divider runs vertical between canvas and prose
+   on wide; flips back to horizontal when stacked. min-height keeps
+   the canvas a substantial visual presence even if the prose column
+   happens to be short. */
+.reading-plate.substrate-card--featured .substrate-card-canvas {
+  border-right: 1px solid rgba(58, 69, 96, 0.28);
+  height: 100%;
+  min-height: 360px;
+}
+@media (max-width: 920px) {
+  .reading-plate.substrate-card--featured .substrate-card-canvas {
+    border-right: none;
+    border-bottom: 1px solid rgba(58, 69, 96, 0.28);
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/* Prose body — flex column, citation pinned to bottom via marginTop:auto.
+   min-width/min-height: 0 are the grid escape hatch — without them, long
+   words or many lines would force the cell wider than its column,
+   triggering the cropping you see now. */
+.substrate-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(22px, 2.4vw, 34px) clamp(22px, 2.4vw, 34px)
+    clamp(26px, 2.4vw, 36px);
+}
+
+.reading-plate.substrate-card--featured .substrate-card-body {
+  padding: clamp(32px, 3.4vw, 56px);
+  justify-content: center;
+}
+@media (max-width: 920px) {
+  .reading-plate.substrate-card--featured .substrate-card-body {
+    padding: clamp(26px, 4vw, 40px);
+    justify-content: flex-start;
+  }
+}
+
+/* Hover affordance for the Enter cue inside a card link. */
+.reading-plate.substrate-card:hover .substrate-card-cta {
+  color: #eaeef7;
+  border-bottom-color: rgba(127, 175, 179, 0.7);
+}
+/* ─────────────────────────────────────────────────────────────
    RULES
    ───────────────────────────────────────────────────────────── */
 .lantern-rule {

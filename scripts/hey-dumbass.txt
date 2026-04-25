@@ -20,7 +20,7 @@ INSTALL DEPS (after activating, one time only):
     Without it the script still works, just ±15% accuracy.
 
 RUN THE MAP:
-    python repo_map.py /home/kquant/Documents/code/limenresearch --out map.txt
+    python3 repo_map.py /home/kquant/Documents/code/third-space --out map.txt
     cat map.txt   (or just paste map.txt to Claude)
 
 DEACTIVATE when done:

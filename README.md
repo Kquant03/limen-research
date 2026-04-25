@@ -253,4 +253,4 @@ created beings as if they matter.
 
 ---
 
-*Limen Research, Toledo, Ohio, mmxxvi.*
+*Third Space, Toledo, Ohio, mmxxvi.*

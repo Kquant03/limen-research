@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  PDFReader
 //  ─────────────────────────────────────────────────────────────────────────
-//  Continuous-scroll PDF viewer for the Limen Research archive.
+//  Continuous-scroll PDF viewer for the Third Space archive.
 //
 //  Pages render as soft-white crystalline rectangles floating over the
 //  pond substrate. No pagination — pagination would fight Lenis; a

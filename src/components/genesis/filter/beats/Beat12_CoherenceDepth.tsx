@@ -1,7 +1,7 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Filter · Beat 11 — Coherence Depth + Coda
+//  Filter · Beat 12 — Coherence Depth + Coda
 //  ─────────────────────────────────────────────────────────────────────────
 //  The landmark biosignature. If grabby expansion is impossible, what
 //  should real advanced civilizations look like instead?
@@ -14,12 +14,17 @@
 //  The diagram contrasts the two signatures side by side. The coda
 //  closes with a falsifiability commitment (Aaronson-style) and a
 //  chiastic image: "the stars belong to no one."
+//
+//  v14·1 renumber: this was Beat 11 in v14. With the Replicator Wave
+//  inserted at id 11, Coherence Depth is now Beat 12. Content unchanged
+//  from v14 — the previous beat now shoulders the bridge to alignment,
+//  so this one can stay focused on the positive observational claim.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { COLOR, FONT } from "../styles";
 import { Body, DisplayHeading, Italic, Kicker, Mono } from "../atoms";
 
-export function Beat11_CoherenceDepth() {
+export function Beat12_CoherenceDepth() {
   return (
     <div
       style={{
@@ -131,7 +136,7 @@ export function Beat11_CoherenceDepth() {
               color: COLOR.inkFaint,
             }}
           >
-            limen research · stanley sebastian · 2026
+            Third Space · stanley sebastian · 2026
           </div>
         </div>
       </div>
@@ -237,6 +242,9 @@ function ExpansionistDiagram() {
           <stop offset="0.7" stopColor={COLOR.sanguine} stopOpacity="0.18" />
           <stop offset="1" stopColor={COLOR.sanguine} stopOpacity="0.4" />
         </radialGradient>
+        <marker id="arrowR" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill={COLOR.sanguine} />
+        </marker>
       </defs>
       {/* Stars */}
       {Array.from({ length: 28 }).map((_, i) => {
@@ -280,11 +288,6 @@ function ExpansionistDiagram() {
           />
         );
       })}
-      <defs>
-        <marker id="arrowR" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill={COLOR.sanguine} />
-        </marker>
-      </defs>
     </svg>
   );
 }

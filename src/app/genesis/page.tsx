@@ -205,10 +205,10 @@ export default function GenesisLandingPage() {
         >
           <SubstrateCard
             catalog="Λ — 001 · F"
-            title="The Filter Envelope"
-            subtitle="A thermodynamic/economic envelope on agentic expansion."
-            description="Not a simulation — a paper artifact. Four tiers of composable constraints bound what any expanding agent can do; scenario-propagation traces futures through the feasible region. The accompanying manuscript extends the argument into the fission/persistence regime."
-            citation="Sebastian · Limen Research · 2026"
+            title="The Filter"
+            subtitle="A wall woven from light and heat."
+            description="Two unrelated areas of physics — relativistic Lieb–Robinson signaling and Landauer–Sivak–Crooks irreversible registration — compose into a single feasibility envelope on coordinated agentic extent. Below the cusp τ★, no agent-coordinated extent is reachable. The companion paper proves the envelope is invariant under the rescaling architected cost-sharing fission would require, closing the strongest Darwinian objection to the homeostatic alternative."
+            citation="Sebastian & Claude (2026)"
             href="/genesis/filter"
             featured
             canvasAspect="16 / 9"

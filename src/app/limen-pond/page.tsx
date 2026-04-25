@@ -430,7 +430,7 @@ export default function LimenPondPage() {
               color: COLOR.inkStrong,
               letterSpacing: "-0.005em",
             }}
-            aria-label="Return to Limen Research"
+            aria-label="Return to Third Space"
           >
             Limen Pond
           </Link>

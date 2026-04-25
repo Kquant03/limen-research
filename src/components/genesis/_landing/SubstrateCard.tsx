@@ -11,13 +11,36 @@
 //    · subtitle, description, citation
 //    · "Enter" link to the substrate's route
 //
-//  Visibility gate — previews only run while on-screen, via an
-//  IntersectionObserver. Cards receive a `playing` prop they can read to
-//  pause their simulation loops; the parent `/genesis` page also has a
-//  "previews on / off" global toggle.
+//  ── Layout ─────────────────────────────────────────────────────────────
+//  Two configurations:
 //
-//  The card borrows from PlatformEntry on the main page but is wider,
-//  shorter, and designed to tile in a grid rather than stack.
+//    Default (featured=false) · vertical stack
+//      ┌──────────────────────┐
+//      │       canvas         │   ← aspect-ratio (4/3 default)
+//      ├──────────────────────┤
+//      │       prose          │   ← flex column, citation pinned bottom
+//      └──────────────────────┘
+//
+//    Featured (featured=true) · horizontal split on > 920px
+//      ┌──────────┬───────────┐
+//      │  canvas  │   prose   │   ← canvas fills row height; prose
+//      │ (aspect) │           │     centers vertically
+//      └──────────┴───────────┘
+//
+//      Below 920px the featured card stacks vertically — same breakpoint
+//      <Stage> in SubstrateControls uses, so the catalog and the
+//      substrate detail pages collapse together.
+//
+//  All layout (grid templates, breakpoints, divider directions, padding)
+//  lives in globals.css under .substrate-card / .substrate-card--featured /
+//  .substrate-card-canvas / .substrate-card-body. This component only
+//  composes className and supplies content. Inline styles can't do media
+//  queries; CSS can.
+//
+//  ── Visibility gate ────────────────────────────────────────────────────
+//  Previews only run while on-screen, via an IntersectionObserver. Cards
+//  receive a `playing` prop they can read to pause their simulation
+//  loops; the parent /genesis page also has a "previews on / off" toggle.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -34,6 +57,7 @@ const COLOR = {
   inkFaint: "#5a6780",
   inkGhost: "#3a4560",
   ghost: "#7fafb3",
+  ghostSoft: "#5d8a8e",
 } as const;
 
 const FONT = {
@@ -43,14 +67,21 @@ const FONT = {
 } as const;
 
 export type SubstrateCardProps = {
-  catalog: string;           // "Λ — 001" identifier
+  catalog: string;           // "Λ — 001 · F" identifier
   title: string;
   subtitle: string;
   description: string;
   citation: string;
   href: string;              // internal substrate route
-  featured?: boolean;        // larger cell when true
-  canvasAspect?: string;     // aspect ratio for the preview (default 1/1)
+  featured?: boolean;        // horizontal split layout when true
+  /**
+   * Aspect ratio for the preview canvas. Default 4/3 for vertical
+   * (default) cards; for featured cards on wide viewports the canvas
+   * fills the column height and aspect-ratio is suggestive only. On
+   * the narrow stacked layout, aspect-ratio drives canvas height for
+   * featured too.
+   */
+  canvasAspect?: string;
   renderCanvas: (playing: boolean) => ReactNode;
 };
 
@@ -62,15 +93,15 @@ export function SubstrateCard({
   citation,
   href,
   featured = false,
-  canvasAspect = "1 / 1",
+  canvasAspect,
   renderCanvas,
 }: SubstrateCardProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [visible, setVisible] = useState(false);
 
   // Only run the preview while the card is in (or near) the viewport.
-  // 200px rootMargin gives us a beat of warm-up before it scrolls into
-  // view, so the reader lands on motion rather than a blank square.
+  // 200px rootMargin gives a beat of warm-up before the card scrolls
+  // into view, so the reader lands on motion rather than a blank square.
   useEffect(() => {
     if (!ref.current) return;
     const observer = new IntersectionObserver(
@@ -81,40 +112,29 @@ export function SubstrateCard({
     return () => observer.disconnect();
   }, []);
 
+  // Aspect-ratio defaults — featured gets a wider default (16/10) since
+  // canvas sits on the left flank rather than dominating the top edge.
+  const aspect = canvasAspect ?? (featured ? "16 / 10" : "4 / 3");
+
+  const className =
+    "reading-plate substrate-card" +
+    (featured ? " substrate-card--featured" : "");
+
   return (
     <Link
       href={href}
       style={{ textDecoration: "none", color: "inherit", display: "block" }}
     >
-      <div
-        ref={ref}
-        className="reading-plate substrate-card"
-        style={{
-          display: "grid",
-          gridTemplateRows: "auto 1fr",
-          gap: 0,
-          padding: 0,
-          overflow: "hidden",
-          transition:
-            "border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
-          height: "100%",
-          cursor: "pointer",
-        }}
-      >
-        {/* ── Preview canvas ─────────────────────────────────── */}
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            aspectRatio: canvasAspect,
-            background: COLOR.void,
-            borderBottom: `1px solid ${COLOR.inkGhost}40`,
-            overflow: "hidden",
-          }}
-        >
+      <div ref={ref} className={className}>
+        {/* ── Preview canvas ──────────────────────────────────────────
+            On featured-wide the canvas fills the column height (CSS
+            sets height: 100%), so aspect-ratio is suggestive only —
+            the column's row height wins. On default and featured-
+            narrow, aspect-ratio drives canvas height. */}
+        <div className="substrate-card-canvas" style={{ aspectRatio: aspect }}>
           {renderCanvas(visible)}
-          {/* Inset glow — faint atmospheric shadow so the preview
-              reads as a window rather than a tile. */}
+          {/* Inset glow — faint atmospheric shadow so the preview reads
+              as a window rather than a flat tile. */}
           <div
             aria-hidden
             style={{
@@ -127,21 +147,16 @@ export function SubstrateCard({
           />
         </div>
 
-        {/* ── Text block ─────────────────────────────────────── */}
-        <div
-          style={{
-            padding: "clamp(22px, 2.2vw, 32px) clamp(22px, 2.2vw, 32px) clamp(26px, 2.4vw, 36px)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 14,
-          }}
-        >
+        {/* ── Prose body ─────────────────────────────────────────────── */}
+        <div className="substrate-card-body">
+          {/* Catalog ID + (featured marker) */}
           <div
             style={{
               display: "flex",
               alignItems: "baseline",
               justifyContent: "space-between",
               gap: 18,
+              minWidth: 0,
             }}
           >
             <span
@@ -166,6 +181,7 @@ export function SubstrateCard({
                   letterSpacing: "0.28em",
                   textTransform: "uppercase",
                   color: COLOR.ghost,
+                  flexShrink: 0,
                 }}
               >
                 <span
@@ -183,35 +199,44 @@ export function SubstrateCard({
             )}
           </div>
 
+          {/* Title */}
           <h3
             style={{
               margin: 0,
               fontFamily: FONT.display,
               fontStyle: "italic",
               fontWeight: 300,
-              fontSize: featured ? "clamp(36px, 4vw, 52px)" : "clamp(26px, 2.6vw, 34px)",
-              lineHeight: 1.02,
+              fontSize: featured
+                ? "clamp(34px, 3.6vw, 48px)"
+                : "clamp(26px, 2.4vw, 32px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.015em",
               color: COLOR.ink,
+              overflowWrap: "break-word",
             }}
           >
             {title}
           </h3>
 
+          {/* Subtitle */}
           <p
             style={{
               margin: 0,
               fontFamily: FONT.display,
               fontStyle: "italic",
               fontWeight: 300,
-              fontSize: featured ? "clamp(16px, 1.4vw, 20px)" : "clamp(14px, 1.1vw, 16px)",
+              fontSize: featured
+                ? "clamp(15px, 1.3vw, 19px)"
+                : "clamp(14px, 1.05vw, 16px)",
               lineHeight: 1.45,
               color: COLOR.inkMuted,
+              overflowWrap: "break-word",
             }}
           >
             {subtitle}
           </p>
 
+          {/* Description */}
           <p
             style={{
               margin: 0,
@@ -219,33 +244,38 @@ export function SubstrateCard({
               fontSize: featured ? 15 : 13.5,
               lineHeight: 1.7,
               color: COLOR.inkBody,
+              overflowWrap: "break-word",
             }}
           >
             {description}
           </p>
 
+          {/* Citation + Enter cue. marginTop: auto pins this row to the
+              bottom of the body. align-items: flex-end keeps the Enter
+              cue aligned with the final line of citation when citation
+              wraps. */}
           <div
             style={{
               marginTop: "auto",
               paddingTop: 12,
               display: "flex",
-              alignItems: "baseline",
+              alignItems: "flex-end",
               justifyContent: "space-between",
-              gap: 16,
+              gap: 18,
+              minWidth: 0,
             }}
           >
             <span
               style={{
                 fontFamily: FONT.mono,
                 fontSize: 9.5,
-                letterSpacing: "0.22em",
+                letterSpacing: "0.18em",
                 textTransform: "uppercase",
                 color: COLOR.inkFaint,
+                lineHeight: 1.7,
                 flex: 1,
                 minWidth: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                overflowWrap: "break-word",
               }}
             >
               {citation}
@@ -265,6 +295,7 @@ export function SubstrateCard({
                 paddingBottom: 4,
                 transition: "color 0.3s ease, border-color 0.3s ease",
                 flexShrink: 0,
+                whiteSpace: "nowrap",
               }}
             >
               Enter

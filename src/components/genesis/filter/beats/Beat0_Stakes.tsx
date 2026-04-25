@@ -29,7 +29,7 @@ export function Beat0_Stakes({ goToBeat }: { goToBeat: (id: number) => void }) {
         position: "relative",
       }}
     >
-      <Kicker>limen research · against grabby expansion · v14</Kicker>
+      <Kicker>Third Space · against grabby expansion · v14</Kicker>
 
       <div style={{ marginTop: 36 }}>
         <h1

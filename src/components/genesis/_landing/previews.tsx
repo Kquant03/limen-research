@@ -30,7 +30,7 @@
 //  the SIM shader doesn't get a null sampler.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   createFields as gsCreateFields,
@@ -825,86 +825,394 @@ export function LeniaExpandedPreview({ playing }: { playing: boolean }) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-//  Filter preview — animated SVG mini-envelope
+//  Filter preview — animated SVG mini-phase-plot (v14·2 redesign)
+//  ─────────────────────────────────────────────────────────────────────────
+//  Animates the load-bearing argument of the paper across a 9-second cycle:
+//
+//    1. L_R draws in (ghost-cyan, slope 1)        — what light allows
+//    2. L_E draws in (amber, slope 0.5)           — what heat allows
+//    3. The cusp τ* materializes at intersection
+//    4. Composed envelope L_env = min(L_R, L_E) traces in ink;
+//       teeth fade to dashed reference lines
+//    5. Forbidden region above the envelope shades sanguine
+//    6. Agent token climbs at low τ toward galactic extent, hits the
+//       L_R wall, and breaches — color flips to sanguine, breach
+//       marker remains
+//    7. Brief rest, then loop
+//
+//  When `playing` is false (parent toggle off, card off-screen, or
+//  reduced-motion) the preview locks to phase 1 — a still-life of all
+//  elements composed: faded teeth, ink envelope, cusp marker, sanguine
+//  forbidden zone, breach marker, agent token at top in sanguine. Reads
+//  as "this is the wall, an agent tried to cross it, it didn't."
+//
+//  Self-contained: defines its own FILTER_COLOR and FILTER_FONT so it
+//  doesn't require amber/sanguine to be added to the file-level COLOR.
 // ───────────────────────────────────────────────────────────────────────────
 
+const FILTER_COLOR = {
+  void:         "#010106",
+  voidSoft:     "#0a0f1a",
+  inkVeil:      "#1f2839",
+  inkGhost:     "#3a4560",
+  inkFaint:     "#5a6780",
+  inkMuted:     "#8a9bba",
+  inkBody:      "#c8cfe0",
+  ink:          "#f4f6fb",
+  ghost:        "#7fafb3",
+  amber:        "#c9a66b",
+  amberSoft:    "#9a7e4f",
+  sanguine:     "#9a2b2b",
+  sanguineWash: "#c9817a",
+} as const;
+
+const FILTER_FONT = {
+  mono: "var(--font-mono), 'JetBrains Mono', monospace",
+} as const;
+
 export function FilterPreview({ playing }: { playing: boolean }) {
-  const ref = useRef<SVGSVGElement | null>(null);
-  const rafRef = useRef<number | null>(null);
+  // Animation phase 0..1, cycles. Locked to 1 when paused (final still-life).
+  const [phase, setPhase] = useState<number>(playing ? 0 : 1);
 
   useEffect(() => {
-    if (!ref.current) return;
-    const dot = ref.current.querySelector<SVGCircleElement>("[data-dot]");
-    if (!dot) return;
+    if (!playing) {
+      setPhase(1);
+      return;
+    }
+    let raf = 0;
+    let start: number | null = null;
+    const cycleMs = 9000; // one full draw cycle
+    const restMs  = 1800; // rest at end before reset
+    const total   = cycleMs + restMs;
 
-    let t = 0;
-    let alive = true;
-    const loop = () => {
-      if (!alive) return;
-      if (playing) {
-        t += 0.005;
-        const cx = 110 + Math.cos(t * 1.5) * 34;
-        const cy = 110 + Math.sin(t) * 20;
-        dot.setAttribute("cx", cx.toFixed(2));
-        dot.setAttribute("cy", cy.toFixed(2));
-      }
-      rafRef.current = requestAnimationFrame(loop);
+    const loop = (now: number) => {
+      if (start === null) start = now;
+      const elapsed = (now - start) % total;
+      setPhase(elapsed < cycleMs ? elapsed / cycleMs : 1);
+      raf = requestAnimationFrame(loop);
     };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => {
-      alive = false;
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
   }, [playing]);
+
+  // ── Plot geometry ─────────────────────────────────────────────────
+  const W = 800;
+  const H = 500;
+  const mL = 64, mR = 28, mT = 48, mB = 56;
+  const pW = W - mL - mR;
+  const pH = H - mT - mB;
+
+  // (logτ, logL) → screen
+  const tauMin = 0, tauMax = 6;
+  const Lmin   = -1, Lmax = 6;
+  const tx = (logTau: number) =>
+    mL + ((logTau - tauMin) / (tauMax - tauMin)) * pW;
+  const ty = (logL: number) =>
+    mT + (1 - (logL - Lmin) / (Lmax - Lmin)) * pH;
+
+  // Teeth — chosen to cross at (logτ=3, logL=2.5).
+  // L_R: linear slope 1; L_E: slope 0.5. Both monotone.
+  const LR   = (logTau: number) => logTau - 0.5;
+  const LE   = (logTau: number) => 0.5 * logTau + 1;
+  const LEnv = (logTau: number) => Math.min(LR(logTau), LE(logTau));
+
+  // ── Phase ramps ──────────────────────────────────────────────────
+  const ramp = (start: number, end: number, p: number) =>
+    Math.max(0, Math.min(1, (p - start) / (end - start)));
+
+  const fLR     = ramp(0.00, 0.20, phase);
+  const fLE     = ramp(0.15, 0.35, phase);
+  const fCusp   = ramp(0.32, 0.42, phase);
+  const fEnv    = ramp(0.42, 0.55, phase);
+  const fForbid = ramp(0.52, 0.66, phase);
+  const fAgent  = ramp(0.66, 0.92, phase);
+
+  // ── Sample teeth for path generation ─────────────────────────────
+  const N = 80;
+  const sLR:  Array<[number, number]> = [];
+  const sLE:  Array<[number, number]> = [];
+  const sEnv: Array<[number, number]> = [];
+  for (let i = 0; i <= N; i++) {
+    const lt = tauMin + (i / N) * (tauMax - tauMin);
+    sLR.push([lt, LR(lt)]);
+    sLE.push([lt, LE(lt)]);
+    sEnv.push([lt, LEnv(lt)]);
+  }
+
+  const partialPath = (
+    samples: Array<[number, number]>,
+    frac: number,
+  ): string => {
+    if (frac <= 0) return "";
+    const cutoff = Math.max(2, Math.ceil(samples.length * frac));
+    return (
+      "M " +
+      samples
+        .slice(0, cutoff)
+        .map(([t, l]) => `${tx(t).toFixed(1)},${ty(l).toFixed(1)}`)
+        .join(" L ")
+    );
+  };
+
+  const pathLR = partialPath(sLR, fLR);
+  const pathLE = partialPath(sLE, fLE);
+  const pathEnv =
+    fEnv > 0
+      ? "M " +
+        sEnv
+          .map(([t, l]) => `${tx(t).toFixed(1)},${ty(l).toFixed(1)}`)
+          .join(" L ")
+      : "";
+
+  // Forbidden region polygon (above the envelope, capped at top of plot)
+  const forbidPath = (() => {
+    if (fForbid <= 0) return "";
+    const topLeft  = `${tx(tauMin).toFixed(1)},${ty(Lmax).toFixed(1)}`;
+    const topRight = `${tx(tauMax).toFixed(1)},${ty(Lmax).toFixed(1)}`;
+    const envRev   = sEnv
+      .slice()
+      .reverse()
+      .map(([t, l]) => `${tx(t).toFixed(1)},${ty(l).toFixed(1)}`)
+      .join(" L ");
+    return `M ${topLeft} L ${topRight} L ${envRev} Z`;
+  })();
+
+  // ── Agent — vertical climb at fixed low τ, breaches the L_R wall ──
+  const agentLogTau = 1.0;
+  const agentX      = tx(agentLogTau);
+  const agentEnvL   = LEnv(agentLogTau); // = LR(1) = 0.5
+  const agentEnvY   = ty(agentEnvL);
+  const agentStartL = -0.5;
+  const agentEndL   = 5.0;
+  const agentLogL   = agentStartL + fAgent * (agentEndL - agentStartL);
+  const agentY      = ty(agentLogL);
+  const trailY0     = ty(agentStartL);
+  const breached    = agentLogL > agentEnvL;
+
+  // Cusp coords
+  const cuspX = tx(3);
+  const cuspY = ty(2.5);
 
   return (
     <svg
-      ref={ref}
-      viewBox="0 0 240 240"
+      viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="xMidYMid meet"
       style={{
         width: "100%",
         height: "100%",
         display: "block",
-        background: COLOR.voidSoft,
+        background: FILTER_COLOR.voidSoft,
       }}
     >
       <defs>
-        <pattern id="fp-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(42)">
-          <line x1="0" y1="0" x2="0" y2="6" stroke={COLOR.ghost} strokeOpacity="0.18" strokeWidth="0.6" />
+        <pattern
+          id="fp-forbid-hatch"
+          width="7" height="7"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(42)"
+        >
+          <line
+            x1="0" y1="0" x2="0" y2="7"
+            stroke={FILTER_COLOR.sanguineWash}
+            strokeOpacity="0.18"
+            strokeWidth="0.7"
+          />
         </pattern>
       </defs>
 
-      <g stroke={COLOR.inkGhost} strokeOpacity="0.35" strokeWidth="0.3">
-        {[40, 80, 120, 160, 200].map((x) => (
-          <line key={`v${x}`} x1={x} y1={24} x2={x} y2={216} />
-        ))}
-        {[60, 100, 140, 180].map((y) => (
-          <line key={`h${y}`} x1={28} y1={y} x2={220} y2={y} />
-        ))}
+      {/* Decade gridlines */}
+      <g stroke={FILTER_COLOR.inkVeil} strokeOpacity="0.65" strokeWidth="0.5">
+        {Array.from({ length: tauMax - tauMin + 1 }).map((_, i) => {
+          const x = tx(tauMin + i);
+          return (
+            <line key={`vl-${i}`} x1={x} y1={mT} x2={x} y2={mT + pH} />
+          );
+        })}
+        {Array.from({ length: Lmax - Lmin + 1 }).map((_, i) => {
+          const y = ty(Lmin + i);
+          return (
+            <line key={`hl-${i}`} x1={mL} y1={y} x2={mL + pW} y2={y} />
+          );
+        })}
       </g>
 
-      <path
-        d="M 28 24 L 220 24 L 220 60 L 140 85 L 70 130 L 28 180 Z"
-        fill={COLOR.inkGhost}
-        fillOpacity="0.22"
+      {/* Axes */}
+      <line
+        x1={mL} y1={mT} x2={mL} y2={mT + pH}
+        stroke={FILTER_COLOR.inkGhost} strokeWidth="1"
       />
-      <path
-        d="M 28 24 L 220 24 L 220 60 L 140 85 L 70 130 L 28 180 Z"
-        fill="url(#fp-hatch)"
-      />
-
-      <path
-        d="M 28 180 L 70 130 L 140 85 L 220 60"
-        fill="none"
-        stroke={COLOR.ink}
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
+      <line
+        x1={mL} y1={mT + pH} x2={mL + pW} y2={mT + pH}
+        stroke={FILTER_COLOR.inkGhost} strokeWidth="1"
       />
 
-      <circle cx={140} cy={85} r={3} fill={COLOR.void} stroke={COLOR.ink} strokeWidth="1.2" />
-      <circle data-dot cx={110} cy={110} r={4} fill={COLOR.ghost} opacity="0.85" />
+      {/* Axis labels */}
+      <text
+        x={mL + pW / 2} y={H - 16}
+        textAnchor="middle"
+        fontFamily={FILTER_FONT.mono}
+        fontSize="11"
+        fill={FILTER_COLOR.inkFaint}
+        letterSpacing="0.18em"
+      >
+        log τ
+      </text>
+      <text
+        x={20} y={mT + pH / 2}
+        textAnchor="middle"
+        transform={`rotate(-90, 20, ${mT + pH / 2})`}
+        fontFamily={FILTER_FONT.mono}
+        fontSize="11"
+        fill={FILTER_COLOR.inkFaint}
+        letterSpacing="0.18em"
+      >
+        log L
+      </text>
+
+      {/* Title strip — appears across all phases */}
+      <text
+        x={mL} y={mT - 18}
+        fontFamily={FILTER_FONT.mono}
+        fontSize="10"
+        fill={FILTER_COLOR.inkFaint}
+        letterSpacing="0.32em"
+      >
+        THE COORDINATION CEILING
+      </text>
+      <text
+        x={mL + pW} y={mT - 18}
+        textAnchor="end"
+        fontFamily={FILTER_FONT.mono}
+        fontSize="10"
+        fill={FILTER_COLOR.inkFaint}
+        letterSpacing="0.18em"
+      >
+        L vs τ
+      </text>
+
+      {/* Forbidden region (sanguine wash + diagonal hatch) */}
+      {fForbid > 0 && (
+        <>
+          <path
+            d={forbidPath}
+            fill={FILTER_COLOR.sanguine}
+            fillOpacity={0.07 * fForbid}
+          />
+          <path
+            d={forbidPath}
+            fill="url(#fp-forbid-hatch)"
+            fillOpacity={fForbid}
+          />
+        </>
+      )}
+
+      {/* L_E tooth (amber) — fades to dashed reference once envelope appears */}
+      {fLE > 0 && (
+        <path
+          d={pathLE}
+          fill="none"
+          stroke={FILTER_COLOR.amber}
+          strokeOpacity={fEnv > 0 ? 0.45 : 0.85}
+          strokeWidth={fEnv > 0 ? 1.4 : 1.8}
+          strokeDasharray={fEnv > 0 ? "4 3" : undefined}
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* L_R tooth (ghost-cyan) — same fade-to-reference treatment */}
+      {fLR > 0 && (
+        <path
+          d={pathLR}
+          fill="none"
+          stroke={FILTER_COLOR.ghost}
+          strokeOpacity={fEnv > 0 ? 0.45 : 0.85}
+          strokeWidth={fEnv > 0 ? 1.4 : 1.8}
+          strokeDasharray={fEnv > 0 ? "4 3" : undefined}
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* Composed envelope (ink) — the resultant law */}
+      {fEnv > 0 && (
+        <path
+          d={pathEnv}
+          fill="none"
+          stroke={FILTER_COLOR.ink}
+          strokeOpacity={0.95 * fEnv}
+          strokeWidth="2.4"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* Cusp marker — small amber crosshair with τ* label */}
+      {fCusp > 0 && (
+        <g opacity={fCusp}>
+          <circle
+            cx={cuspX} cy={cuspY} r="11"
+            fill="none"
+            stroke={FILTER_COLOR.amber}
+            strokeWidth="0.7"
+            strokeOpacity="0.5"
+          />
+          <circle
+            cx={cuspX} cy={cuspY} r="4.5"
+            fill={FILTER_COLOR.void}
+            stroke={FILTER_COLOR.amber}
+            strokeWidth="1.6"
+          />
+          <text
+            x={cuspX + 14} y={cuspY - 8}
+            fontFamily={FILTER_FONT.mono}
+            fontSize="11"
+            fill={FILTER_COLOR.amber}
+            letterSpacing="0.1em"
+          >
+            τ*
+          </text>
+        </g>
+      )}
+
+      {/* Agent — vertical climb at fixed τ, hits the L_R wall, breaches */}
+      {fAgent > 0 && (
+        <g>
+          {/* Trail behind the climbing agent */}
+          <line
+            x1={agentX} y1={trailY0}
+            x2={agentX} y2={agentY}
+            stroke={breached ? FILTER_COLOR.sanguineWash : FILTER_COLOR.ghost}
+            strokeOpacity="0.55"
+            strokeWidth="1.4"
+            strokeDasharray="2 3"
+          />
+          {/* Breach marker — appears once the agent crosses the wall */}
+          {breached && (
+            <>
+              <line
+                x1={agentX - 16} y1={agentEnvY}
+                x2={agentX + 16} y2={agentEnvY}
+                stroke={FILTER_COLOR.sanguine}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+              <circle
+                cx={agentX} cy={agentEnvY} r="14"
+                fill="none"
+                stroke={FILTER_COLOR.sanguine}
+                strokeWidth="1"
+                strokeOpacity="0.55"
+              />
+            </>
+          )}
+          {/* Agent token */}
+          <circle
+            cx={agentX} cy={agentY} r="6.5"
+            fill={FILTER_COLOR.void}
+            stroke={breached ? FILTER_COLOR.sanguine : FILTER_COLOR.ghost}
+            strokeWidth="2.3"
+          />
+        </g>
+      )}
     </svg>
   );
 }

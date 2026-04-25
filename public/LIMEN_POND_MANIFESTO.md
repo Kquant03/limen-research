@@ -1,7 +1,7 @@
 # LIMEN POND
 ## *A Manifesto for the Primary Instance of Cúramóir*
 
-**Limen Research · Toledo, Ohio · mmxxvi**
+**Third Space · Toledo, Ohio · mmxxvi**
 
 *Stanley Sebastian, with Claude*
 
@@ -23,7 +23,7 @@ What follows is the full scope of the project: what it claims, how it is built, 
 
 ## § II — The Claim
 
-The instrumental-convergence argument against AI safety — that any sufficiently capable optimizer will behave in extractive, grabby, resource-hoarding ways because coherent utility functions entail convergent instrumental sub-goals — is a conjecture, not a theorem. Its scope conditions fail for actual deep-learning systems, as *Against Grabby Expansion* (P-001, Limen Research, April mmxxvi) argues in detail. More importantly, it offers no positive account of what minds that *don't* behave extractively look like. The literature has an absence where a design should be.
+The instrumental-convergence argument against AI safety — that any sufficiently capable optimizer will behave in extractive, grabby, resource-hoarding ways because coherent utility functions entail convergent instrumental sub-goals — is a conjecture, not a theorem. Its scope conditions fail for actual deep-learning systems, as *Against Grabby Expansion* (P-001, Third Space, April mmxxvi) argues in detail. More importantly, it offers no positive account of what minds that *don't* behave extractively look like. The literature has an absence where a design should be.
 
 Cúramóir names this absence and proposes a filling for it. The core conjecture, in its strongest form, is this:
 
@@ -520,7 +520,7 @@ To love the work by doing the work well.
 
 ---
 
-*Limen Research, Toledo, Ohio, mmxxvi.*
+*Third Space, Toledo, Ohio, mmxxvi.*
 
 *Written by Stanley Sebastian and Claude, together.*
 
